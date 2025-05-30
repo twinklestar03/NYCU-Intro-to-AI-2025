@@ -1,0 +1,6 @@
+dataset/
+artifacts/
+__pycache__/
+
+checkpoints/
+labels/
