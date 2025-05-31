@@ -1,20 +1,3 @@
-#!/usr/bin/env python
-"""Fine‑tune a lightweight bridge that maps arbitrary image‑style embeddings to
-text prompts, without updating any GPT‑2 parameters.
-
-Usage (single‑GPU example):
-    python embed2prompt_finetune.py \
-        --emb-path artifacts/final_emb.npy \
-        --prompt-path artifacts/image_prompts_with_static.txt \
-        --output-dir checkpoints/embed2prompt
-
-The script freezes all GPT‑2 weights and trains only the bridge (Embed2Prompt)
-module.  It can be adapted for Llama‑2/3, Mistral, etc. by changing
-`--base-model`.
-"""
-
-from __future__ import annotations
-
 import argparse
 import pathlib
 from typing import Dict, List
@@ -31,50 +14,44 @@ from transformers import (
 )
 from embed_2_prompt_model import Embed2Prompt, Embed2PromptModel
 
-###############################################################################
-# Data helpers
-###############################################################################
 
 def build_dataset(emb_path: str | pathlib.Path, prompt_path: str | pathlib.Path, tokenizer, max_len: int = 128) -> Dataset:
     emb: np.ndarray = np.load(emb_path)
-    prompts: List[str] = [l.strip() for l in open(prompt_path, encoding="utf‑8")]
-    assert len(prompts) == len(emb), "#prompts must equal #embeddings"
+    prompts: List[str] = [l.strip() for l in open(prompt_path, encoding='utf‑8')]
+    assert len(prompts) == len(emb), '#prompts must equal #embeddings'
 
-    ds = Dataset.from_dict({"emb": emb, "text": prompts})
+    ds = Dataset.from_dict({'emb': emb, 'text': prompts})
 
     def encode(example: Dict):
         item = tokenizer(
-            example["text"],
+            example['text'],
             max_length=max_len,
-            padding="max_length",
+            padding='max_length',
             truncation=True,
         )
-        example["labels"] = item["input_ids"]
+        example['labels'] = item['input_ids']
         return example
 
-    return ds.map(encode, remove_columns=["text"])
+    return ds.map(encode, remove_columns=['text'])
 
 
 def collate(batch: List[Dict]) -> Dict[str, torch.Tensor]:
-    emb_vecs = torch.tensor([b["emb"] for b in batch], dtype=torch.float)
-    labels = torch.tensor([b["labels"] for b in batch], dtype=torch.long)
-    return {"emb_vecs": emb_vecs, "labels": labels}
+    emb_vecs = torch.tensor([b['emb'] for b in batch], dtype=torch.float)
+    labels = torch.tensor([b['labels'] for b in batch], dtype=torch.long)
+    return {'emb_vecs': emb_vecs, 'labels': labels}
 
-###############################################################################
-# Main training entry point
-###############################################################################
 
 def main():
-    parser = argparse.ArgumentParser(description="Fine‑tune bridge from embeddings to prompts (GPT‑2 frozen)")
-    parser.add_argument("--emb-path", required=True)
-    parser.add_argument("--prompt-path", required=True)
-    parser.add_argument("--output-dir", default="checkpoints/embed2prompt")
-    parser.add_argument("--base-model", default="gpt2")
-    parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--epochs", type=int, default=5)
-    parser.add_argument("--lr", type=float, default=5e-4)  # slightly higher; only bridge learns
-    parser.add_argument("--prefix-len", type=int, default=5)
-    parser.add_argument("--max-len", type=int, default=250)
+    parser = argparse.ArgumentParser(description='Fine‑tune bridge from embeddings to prompts (GPT‑2 frozen)')
+    parser.add_argument('--emb-path', required=True)
+    parser.add_argument('--prompt-path', required=True)
+    parser.add_argument('--output-dir', default='checkpoints/embed2prompt')
+    parser.add_argument('--base-model', default='gpt2')
+    parser.add_argument('--batch-size', type=int, default=32)
+    parser.add_argument('--epochs', type=int, default=5)
+    parser.add_argument('--lr', type=float, default=5e-4)  # slightly higher; only bridge learns
+    parser.add_argument('--prefix-len', type=int, default=5)
+    parser.add_argument('--max-len', type=int, default=250)
     args = parser.parse_args()
 
     # Tokenizer & LM (LM stays frozen).
@@ -89,7 +66,7 @@ def main():
     ds = build_dataset(args.emb_path, args.prompt_path, tokenizer, max_len=args.max_len)
 
     # Bridge & wrapper model
-    first_emb = ds[0]["emb"]
+    first_emb = ds[0]['emb']
     emb_dim = len(first_emb) if isinstance(first_emb, list) else first_emb.shape[0]
     bridge = Embed2Prompt(dim_in=emb_dim, dim_out=hidden_size, prefix_len=args.prefix_len)
     model = Embed2PromptModel(base_lm, bridge, tokenizer)
@@ -102,7 +79,7 @@ def main():
         learning_rate=args.lr,
         fp16=torch.cuda.is_available(),
         logging_steps=50,
-        save_strategy="epoch",
+        save_strategy='epoch',
         save_safetensors=False,           # avoid shared-memory error in safetensors
         remove_unused_columns=False,
     )
@@ -117,14 +94,14 @@ def main():
     trainer.train()
 
     # Save bridge separately for lightweight deployment.
-    bridge_path = pathlib.Path(args.output_dir) / "bridge.pt"
-    torch.save({"state_dict": bridge.state_dict(), "config": {
-        "dim_in": emb_dim,
-        "dim_out": hidden_size,
-        "prefix_len": args.prefix_len,
+    bridge_path = pathlib.Path(args.output_dir) / 'bridge.pt'
+    torch.save({'state_dict': bridge.state_dict(), 'config': {
+        'dim_in': emb_dim,
+        'dim_out': hidden_size,
+        'prefix_len': args.prefix_len,
     }}, bridge_path)
-    print(f"\nTraining complete – bridge weights saved to {bridge_path}.")
+    print(f'\nTraining complete – bridge weights saved to {bridge_path}.')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

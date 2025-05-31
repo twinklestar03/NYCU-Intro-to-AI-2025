@@ -1,6 +1,10 @@
 dataset/
 artifacts/
 __pycache__/
+cache/
 
 checkpoints/
 labels/
+
+*.png
+*.jpg
