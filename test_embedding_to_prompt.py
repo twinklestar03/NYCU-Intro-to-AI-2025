@@ -1,7 +1,7 @@
 # test_prompt_gen.py
 import numpy as np, torch
 from transformers import AutoTokenizer, GPT2LMHeadModel
-from embed_2_prompt_model import Embed2Prompt, Embed2PromptModel  
+from models.embed_2_prompt import Embed2Prompt, Embed2PromptModel  
 
 base_model  = 'gpt2'
 tokenizer   = AutoTokenizer.from_pretrained(base_model)

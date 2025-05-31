@@ -12,7 +12,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
-from embed_2_prompt_model import Embed2Prompt, Embed2PromptModel
+from models.embed_2_prompt import Embed2Prompt, Embed2PromptModel
 
 
 def build_dataset(emb_path: str | pathlib.Path, prompt_path: str | pathlib.Path, tokenizer, max_len: int = 128) -> Dataset:
